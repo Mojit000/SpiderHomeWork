@@ -4,6 +4,10 @@ import os
 
 url = 'http://www.jianshu.com/'
 
+page = 1
+
+article_items = []
+
 # 获取网页内容
 def get_html(url):
     # 设置一些headers，要不捕捉不到数据
@@ -11,19 +15,24 @@ def get_html(url):
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36',
     }
     resp = requests.get(url, headers=headers)
-    html = resp.text
     # 糗百有时候返回304，有时候返回200
     # 貌似是有段子更新的时候返回200，没有更新的时候返回304
-    if resp.status_code == 200 or resp.status_code == 304:
-        return html
+    if resp.status_code in (200, 304):
+        return resp
     else:
         return None
 
 # 解析网页,获取需要的信息
-def parse_html(html):
-    items = []
-    soup = BeautifulSoup(html, 'html.parser')
+def parse_html(resp):
+    seen_snote_ids = []
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    # 结束判断条件
+    isEnd = False if soup.find(name='ul', class_='note-list').find_all(name='li') else True
     for i in soup.find(name='ul', class_='note-list').find_all(name='li'):
+        # items = []
+        # 记录seen_snote_ids
+        seen_snote_ids.append(i.get('data-note-id'))
+        # print(i.get('data-note-id'))
         # 作者名称
         author_name = i.find(name='div', class_='name').find(name='a').text
         # 文章标题
@@ -57,11 +66,34 @@ def parse_html(html):
             article_collection_tag  = '没有收录到任何专题'
         item = [author_name, article_title, article_release_time, 
         article_read_count, article_comment_count, article_likeit_count, article_payit_count, article_collection_tag]
-        items.append(item)     
-    return items
+        # if item not in article_items:
+        article_items.append(item)
+        print(item)
+        # with open('jsHomePage2.txt', 'a') as f:
+        #     for item in items:
+        #         f.write(str(item) + os.linesep)
+    # 翻页爬取
+    id_data = '&seen_snote_ids%5B%5D='.join(seen_snote_ids)
+    global page
+    page = page + 1
+    # 设置一些headers，要不捕捉不到数据
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36',
+        'Cookie': 'remember_user_token=W1s1Mjk4Mzg3XSwiJDJhJDEwJDEvSkNBcTNuUEg4Z0pMUlNwTXpqNE8iLCIxNDk1NTU0NTQ0LjQ2NjQzNDciXQ%3D%3D--00e5743d1005f1872b9658543d72184d2241ae12; _gat=1; _ga=GA1.2.1093563359.1495552752; _gid=GA1.2.1923847820.1495555456; Hm_lvt_0c0e9d9b1e7d617b3e6842e85b9fb068=1495552752,1495554089,1495554286,1495554443; Hm_lpvt_0c0e9d9b1e7d617b3e6842e85b9fb068=1495555456; _session_id={}'.format(resp.cookies['_session_id']),
+    }
+    # print(headers)
+    next_page_url = 'http://www.jianshu.com/?seen_snote_ids%5B%5D=' + id_data + '&page={}'.format(page)
+    if page <= 20:
+        print(next_page_url)
+        parse_html(requests.get(next_page_url, headers=headers))
 
 if __name__ == '__main__':
+    parse_html(get_html(url))
+    temp = article_items
+    for i in article_items:
+        if i not in temp:
+            temp.append(i)
     with open('jsHomePage.txt', 'w') as f:
-        items = parse_html(get_html(url))
-        for item in items:
+        # parse_html(get_html(url))
+        for item in temp:
             f.write(str(item) + os.linesep)

@@ -37,6 +37,12 @@ def parse_html(html):
             'laugher_count': i.find(name='div', class_='stats').text.split()[0],
             'comment_count': i.find(name='div', class_='stats').text.split()[-2],
             })
+    # 实现分页爬取（递归）
+    next_page = soup.find(name='ul', class_='pagination').find_all(name='li')[-1]
+    # 递归结束条件：没有找到下一页按钮表示到了最后一页，结束
+    if next_page.find(name='span', class_='next'):
+        next_page_url = 'http://www.qiushibaike.com' + next_page.find(name='a').get('href')
+        parse_html(get_html(next_page_url))
 
 if __name__ == '__main__':
     parse_html(get_html(url))
